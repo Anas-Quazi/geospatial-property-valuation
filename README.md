@@ -146,10 +146,8 @@ geospatial-property-valuation/
 │   ├── kc_house_data.csv           # Raw dataset
 │   └── kc_house_cleaned.csv        # Cleaned output from preprocessing
 │
-├── data_inspection/
-│   └── data_inspection.ipynb       # Schema, nulls, outlier analysis — Aadi
-│
 ├── data_preprocessing/
+│   ├── data_inspection.ipynb       # Schema, nulls, outlier analysis — Aadi
 │   └── data_preprocessing.ipynb   # Full cleaning pipeline — Shais
 │
 ├── feature_engineering/            # Week 2
