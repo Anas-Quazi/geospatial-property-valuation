@@ -24,7 +24,7 @@ project = {
     "baseline"  : "XGBoost AVM",
     "dataset"   : "King County House Sales (USA)",
     "metric"    : "MAPE (Mean Absolute Percentage Error)",
-    "internship": "Infotact Solutions — DSML Internship 2025",
+    "internship": "Infotact Solutions — DSML Internship 2026",
     "authors"   : ["Shais013", "Anas-Quazi", "Aadi-1605", "Yash-Chattar"],
 }
 ```
