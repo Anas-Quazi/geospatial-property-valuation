@@ -226,6 +226,6 @@ Issues are tracked on the [Project Kanban Board](../../projects) — managers ca
 
 <div align="center">
 
-**Infotact Solutions — DSML Internship 2025 · Project 2 of 2**
+**Infotact Solutions — DSML Internship 2026 · Project 2 of 2**
 
 </div>
