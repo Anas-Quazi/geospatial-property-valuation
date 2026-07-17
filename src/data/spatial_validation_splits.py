@@ -13,7 +13,7 @@ def generate_spatial_splits(input_path: str, splits_output_path: str, group_colu
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Spatial data engine missing at: {input_path}")
         
-    print("📖 Reading immutable spatial parquet file...")
+    print("Reading immutable spatial parquet file...")
     gdf = gpd.read_parquet(input_path)
     
     # BIG FIX: Force a clean, sequential RangeIndex (0, 1, 2, 3...)
@@ -29,7 +29,7 @@ def generate_spatial_splits(input_path: str, splits_output_path: str, group_colu
         raise KeyError(f"Specified spatial grouping column '{group_column}' missing from dataset.")
 
     # 2. Initialize GroupKFold Partitioning
-    print(f"🔒 Allocating {n_splits}-Fold GroupKFold splits partitioned by administrative '{group_column}' blocks...")
+    print(f"Allocating {n_splits}-Fold GroupKFold splits partitioned by administrative '{group_column}' blocks...")
     gkf = GroupKFold(n_splits=n_splits)
     
     # Create an empty array to house fold assignments corresponding exactly to the row sequences
@@ -50,11 +50,11 @@ def generate_spatial_splits(input_path: str, splits_output_path: str, group_colu
         val_groups = set(groups[val_idx])
         overlap = train_groups.intersection(val_groups)
         
-        print(f"    ├─ Fold {fold_idx}: Train Zones = {len(train_groups)} | Val Zones = {len(val_groups)} | Leakage Overlap = {len(overlap)}")
+        print(f"  ├─ Fold {fold_idx}: Train Zones = {len(train_groups)} | Val Zones = {len(val_groups)} | Leakage Overlap = {len(overlap)}")
         assert len(overlap) == 0, f"FATAL ERROR: Spatial leakage detected in Fold {fold_idx}!"
 
     # 4. Construct the completely decoupled metadata mapping dataframe
-    print("🛠️ Constructing independent validation indexing matrix...")
+    print("Constructing independent validation indexing matrix...")
     
     splits_df = pd.DataFrame({
         "generated_index": gdf.index,
@@ -63,10 +63,10 @@ def generate_spatial_splits(input_path: str, splits_output_path: str, group_colu
     
     # 5. Serialize the validation mapping metadata to disk
     os.makedirs(os.path.dirname(splits_output_path), exist_ok=True)
-    print(f"💾 Saving decoupled validation map asset to: {splits_output_path}")
+    print(f"Saving decoupled validation map asset to: {splits_output_path}")
     splits_df.to_parquet(splits_output_path, index=False)
     
-    print("✅ Phase 4 complete! Spatial validation strategy locked down safely without data tampering.")
+    print("Phase 4 complete! Spatial validation strategy locked down safely without data tampering.")
 
 if __name__ == "__main__":
     # SCRIPT_DIR is project_root/src/data/
