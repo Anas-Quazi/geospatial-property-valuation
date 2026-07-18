@@ -75,7 +75,7 @@ def _min_distance_to_points(x, y, ref_xy):
     return min_dist
 
 
-def add_spatial_proximity_features(input_path: str, output_path: str):
+def add_spatial_proximity_features(gdf):
     """
     Category 2: Spatial Proximity & Accessibility (12 features).
 
@@ -85,11 +85,6 @@ def add_spatial_proximity_features(input_path: str, output_path: str):
     new parquet file. Does NOT touch fold assignment or any other
     category's features — scope is strictly Category 2.
     """
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f"Spatial data file missing at: {input_path}")
-
-    print("Reading spatial parquet file...")
-    gdf = gpd.read_parquet(input_path)
 
     if "projected_x" not in gdf.columns or "projected_y" not in gdf.columns:
         raise KeyError(
@@ -165,13 +160,6 @@ def add_spatial_proximity_features(input_path: str, output_path: str):
     cx, cy = county_center_xy
     gdf["radial_dist_origin"] = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
 
-    # -----------------------------------------------------------------
-    # Save output — Category 2 features only, appended to the existing
-    # spatial dataframe. No fold logic, no other category's features.
-    # -----------------------------------------------------------------
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    print(f"Saving Category 2 feature output to: {output_path}")
-    gdf.to_parquet(output_path, index=False)
 
     added_cols = [
         "dist_to_seattle", "log_dist_to_seattle",
@@ -195,9 +183,5 @@ if __name__ == "__main__":
     BASE_DIR = SCRIPT_DIR.parent.parent
 
     input_spatial_data = BASE_DIR / "dataset" / "processed" / "kc_house_spatial.parquet"
-    output_features = BASE_DIR / "dataset" / "processed" / "spatial_proximity_features.parquet"
-
-    add_spatial_proximity_features(
-        input_path=str(input_spatial_data),
-        output_path=str(output_features),
-    )
+    df = pd.read_parquet(input_spatial_data)
+    add_spatial_proximity_features(df)
