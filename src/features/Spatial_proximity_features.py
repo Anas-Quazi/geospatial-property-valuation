@@ -4,6 +4,14 @@ import pandas as pd
 import geopandas as gpd
 from pathlib import Path
 
+# ---------------------------------------------------------------------------
+# FIXED REFERENCE CONSTANTS
+# ---------------------------------------------------------------------------
+# These are real-world, static geographic facts — not derived from
+# kc_house_data.csv or any train/validation split. They are the same for
+# every row and every fold, so there is no data-leakage risk in using them.
+# Source: publicly known city-center / campus coordinates (WGS84 lat/long).
+# ---------------------------------------------------------------------------
 
 HUBS_WGS84 = {
     "seattle":  {"lat": 47.6062, "lon": -122.3321},   # Downtown Seattle
@@ -12,6 +20,11 @@ HUBS_WGS84 = {
 }
 
 KING_COUNTY_CENTER_WGS84 = {"lat": 47.4670, "lon": -121.8330}  # King County center
+
+# A small set of fixed shoreline / lake reference points (WGS84 lat/long).
+# dist_to_nearest_coast / dist_to_nearest_lake take the MINIMUM distance
+# from a house to any point in the relevant set — a lightweight stand-in
+# for a full shoreline polygon, with no external shapefile dependency.
 
 PUGET_SOUND_POINTS_WGS84 = [
     {"lat": 47.6050, "lon": -122.3800},  # Elliott Bay / downtown waterfront
@@ -28,7 +41,8 @@ LAKE_POINTS_WGS84 = [
     {"lat": 47.6018, "lon": -122.0844},  # Lake Sammamish (central)
 ]
 
-
+# CRS used throughout the project (matches kc_house_spatial.parquet):
+# NAD83 / Washington North (EPSG:2285), units = US survey feet.
 PROJECTED_CRS = "EPSG:2285"
 WGS84_CRS = "EPSG:4326"
 
@@ -84,6 +98,9 @@ def add_spatial_proximity_features(input_path: str, output_path: str):
         )
 
     
+    # Guard against silent unit-mismatch: if the input file's CRS is not
+    # EPSG:2285, distances computed against our EPSG:2285 reference points
+    # would be silently wrong (mixed units) rather than erroring. Fail loud.
     expected_epsg = int(PROJECTED_CRS.split(":")[1])
     if gdf.crs is None or gdf.crs.to_epsg() != expected_epsg:
         raise ValueError(
@@ -103,8 +120,10 @@ def add_spatial_proximity_features(input_path: str, output_path: str):
     x = gdf["projected_x"].values
     y = gdf["projected_y"].values
 
-   
-    print("Projecting fixed reference points to EPSG:2285...")
+   # -----------------------------------------------------------------
+    # Precompute projected (x, y) for every fixed reference point ONCE.
+    # -----------------------------------------------------------------
+    print(" Projecting fixed reference points to EPSG:2285...")
     hub_xy = {
         name: _points_to_projected_xy([coords])[0]
         for name, coords in HUBS_WGS84.items()
@@ -113,7 +132,9 @@ def add_spatial_proximity_features(input_path: str, output_path: str):
     coast_xy = _points_to_projected_xy(PUGET_SOUND_POINTS_WGS84)
     lake_xy = _points_to_projected_xy(LAKE_POINTS_WGS84)
 
-    
+    # -----------------------------------------------------------------
+    # 9-14: Hub distances (Seattle, Bellevue, Redmond) + log versions
+    # -----------------------------------------------------------------
     print("Computing hub distances (Seattle / Bellevue / Redmond)...")
     for hub_name in ("seattle", "bellevue", "redmond"):
         hx, hy = hub_xy[hub_name]
@@ -122,11 +143,16 @@ def add_spatial_proximity_features(input_path: str, output_path: str):
         gdf[f"log_dist_to_{hub_name}"] = np.log1p(dist)  # ln(d + 1)
 
     
+    # -----------------------------------------------------------------
+    # 15-16: Coastline & lake proximity (minimum distance to point set)
+    # -----------------------------------------------------------------
     print("Computing coastline & lake proximity...")
     gdf["dist_to_nearest_coast"] = _min_distance_to_points(x, y, coast_xy)
     gdf["dist_to_nearest_lake"] = _min_distance_to_points(x, y, lake_xy)
 
-   
+   # -----------------------------------------------------------------
+    # 17-20: Geographic coordinates & projections
+    # -----------------------------------------------------------------
     print("Adding coordinate & projection features...")
     gdf["x_coords"] = x
     gdf["y_coords"] = y
@@ -139,7 +165,10 @@ def add_spatial_proximity_features(input_path: str, output_path: str):
     cx, cy = county_center_xy
     gdf["radial_dist_origin"] = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
 
-    
+    # -----------------------------------------------------------------
+    # Save output — Category 2 features only, appended to the existing
+    # spatial dataframe. No fold logic, no other category's features.
+    # -----------------------------------------------------------------
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     print(f"Saving Category 2 feature output to: {output_path}")
     gdf.to_parquet(output_path, index=False)
