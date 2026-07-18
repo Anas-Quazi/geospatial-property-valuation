@@ -14,13 +14,13 @@ def generate_spatial_eda_map(input_path: str, output_html_path: str):
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Spatial parquet file missing at: {input_path}")
         
-    print("📖 Loading spatial Parquet dataset...")
+    print("Loading spatial Parquet dataset...")
     gdf = gpd.read_parquet(input_path)
     
     # 2. Convert coordinate reference system back to standard GPS decimal degrees
     # Web mapping libraries (Folium/Leaflet) strictly require EPSG:4326 (WGS 84)
     if gdf.crs != "EPSG:4326":
-        print("🌍 Converting spatial coordinates back to global GPS degrees (EPSG:4326)...")
+        print("Converting spatial coordinates back to global GPS degrees (EPSG:4326)...")
         gdf_gps = gdf.to_crs("EPSG:4326")
     else:
         gdf_gps = gdf.copy()
@@ -33,11 +33,11 @@ def generate_spatial_eda_map(input_path: str, output_html_path: str):
     center_lat = gdf_gps['lat_gps'].median()
     center_long = gdf_gps['long_gps'].median()
     
-    print(f"📍 Map canvas anchored over King County center: [{center_lat:.4f}, {center_long:.4f}]")
+    print(f"Map canvas anchored over King County center: [{center_lat:.4f}, {center_long:.4f}]")
     m = folium.Map(location=[center_lat, center_long], zoom_start=10, tiles="OpenStreetMap")
 
     # 4. Construct Layer 1: Property Price Heatmap
-    print("🔥 Rendering dynamic pricing density heatmap...")
+    print("Rendering dynamic pricing density heatmap...")
     # We use price per square foot of living space to capture localized geographic value premiums
     gdf_gps['price_per_sqft'] = gdf_gps['price'] / gdf_gps['sqft_living']
     
@@ -54,7 +54,7 @@ def generate_spatial_eda_map(input_path: str, output_html_path: str):
     ).add_to(m)
 
     # 5. Construct Layer 2: Luxury Hotspot Markers (Top 2% Highest Prices)
-    print("💎 Building cluster layers for luxury property hotspots...")
+    print("Building cluster layers for luxury property hotspots...")
     price_threshold = gdf_gps['price'].quantile(0.98)
     luxury_homes = gdf_gps[gdf_gps['price'] >= price_threshold]
     
@@ -83,10 +83,10 @@ def generate_spatial_eda_map(input_path: str, output_html_path: str):
     folium.LayerControl().add_to(m)  # Allows turning layers on/off interactively
     
     os.makedirs(os.path.dirname(output_html_path), exist_ok=True)
-    print(f"💾 Exporting interactive HTML map asset to: {output_html_path}")
+    print(f"Exporting interactive HTML map asset to: {output_html_path}")
     m.save(output_html_path)
     
-    print("✅ Phase 3 complete! Interactive Spatial EDA dashboard successfully generated.")
+    print("Phase 3 complete! Interactive Spatial EDA dashboard successfully generated.")
 
 if __name__ == "__main__":
     # Dynamically resolve file directories using our base root engine pathing logic
