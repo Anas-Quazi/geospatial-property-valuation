@@ -10,7 +10,7 @@ REQUIRED_COLS = [
 ]
 
 
-def add_structural_ratio_features(input_path: str):
+def add_structural_ratio_features(df):
     """
     Category 3: Structural Ratios & Density Metrics (14 features).
 
@@ -19,14 +19,6 @@ def add_structural_ratio_features(input_path: str):
     and writes the result to a new parquet file. Scope is strictly
     Category 3 — no fold logic, no other category's features touched.
     """
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f"Input data file missing at: {input_path}")
-
-    print("Reading input file...")
-    if str(input_path).endswith(".parquet"):
-        df = pd.read_parquet(input_path)
-    else:
-        df = pd.read_csv(input_path)
 
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
@@ -117,7 +109,7 @@ if __name__ == "__main__":
     BASE_DIR = SCRIPT_DIR.parent.parent
 
     input_data = BASE_DIR / "dataset" / "kc_house_cleaned.csv"
-
+    df = pd.read_parquet(input_data)
     add_structural_ratio_features(
         input_path=str(input_data),
     )

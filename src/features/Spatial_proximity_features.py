@@ -75,7 +75,7 @@ def _min_distance_to_points(x, y, ref_xy):
     return min_dist
 
 
-def add_spatial_proximity_features(input_path: str):
+def add_spatial_proximity_features(gdf):
     """
     Category 2: Spatial Proximity & Accessibility (12 features).
 
@@ -85,11 +85,6 @@ def add_spatial_proximity_features(input_path: str):
     new parquet file. Does NOT touch fold assignment or any other
     category's features — scope is strictly Category 2.
     """
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f"Spatial data file missing at: {input_path}")
-
-    print("Reading spatial parquet file...")
-    gdf = gpd.read_parquet(input_path)
 
     if "projected_x" not in gdf.columns or "projected_y" not in gdf.columns:
         raise KeyError(
@@ -188,7 +183,5 @@ if __name__ == "__main__":
     BASE_DIR = SCRIPT_DIR.parent.parent
 
     input_spatial_data = BASE_DIR / "dataset" / "processed" / "kc_house_spatial.parquet"
-
-    add_spatial_proximity_features(
-        input_path=str(input_spatial_data),
-    )
+    df = pd.read_parquet(input_spatial_data)
+    add_spatial_proximity_features(df)
