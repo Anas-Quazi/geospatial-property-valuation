@@ -10,7 +10,7 @@ REQUIRED_COLS = [
 ]
 
 
-def add_structural_ratio_features(input_path: str, output_path: str):
+def add_structural_ratio_features(input_path: str):
     """
     Category 3: Structural Ratios & Density Metrics (14 features).
 
@@ -98,10 +98,6 @@ def add_structural_ratio_features(input_path: str, output_path: str):
     # 34. grade_to_condition_ratio
     df["grade_to_condition_ratio"] = df["grade"] / df["condition"]
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    print(f"Saving Category 3 feature output to: {output_path}")
-    df.to_parquet(output_path, index=False)
-
     added_cols = [
         "land_to_structure_ratio", "sqft_non_living", "avg_room_size",
         "bed_bath_ratio", "sqft_living_per_floor", "is_mansion",
@@ -121,9 +117,7 @@ if __name__ == "__main__":
     BASE_DIR = SCRIPT_DIR.parent.parent
 
     input_data = BASE_DIR / "dataset" / "kc_house_cleaned.csv"
-    output_features = BASE_DIR / "dataset" / "processed" / "structural_ratio_features.parquet"
 
     add_structural_ratio_features(
         input_path=str(input_data),
-        output_path=str(output_features),
     )
