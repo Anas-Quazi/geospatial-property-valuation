@@ -6,7 +6,6 @@
 # Never commit raw or processed datasets to Git. 
 /data/
 *.xlsx
-*.parquet
 *.jsonl
 
 # 2. Python Environment & Caches
