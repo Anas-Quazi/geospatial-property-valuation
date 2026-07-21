@@ -28,6 +28,9 @@ def clean_master_dataset(df):
     price_sqft_cap = df["price_per_sqft"].quantile(0.995)
     df["price_per_sqft"] = df["price_per_sqft"].clip(upper=price_sqft_cap)
 
+    # 6. Clip negative relative age ratio caused by pre-construction age adjustment
+    df["relative_age_to_zip_median"] = df["relative_age_to_zip_median"].clip(lower=0)
+
     return df
 
 
