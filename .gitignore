@@ -20,7 +20,11 @@ env/
 .env
 
 # 3. Model Weights and Logs
-models/
+models/*.json
+models/*.pkl
+models/*.pt
+models/*.h5
+models/*.joblib
 *.pt
 *.pkl
 *.joblib
