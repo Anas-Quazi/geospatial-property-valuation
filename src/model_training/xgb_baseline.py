@@ -15,7 +15,8 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-BASE_DIR   = SCRIPT_DIR.parent        # models/ is at root, one level up
+BASE_DIR   = SCRIPT_DIR.parent.parent.parent  # src/model_training → src → root
+
 
 INPUT_PATH  = BASE_DIR / "dataset" / "processed" / "kc_master_dataset_cleaned.parquet"
 OUTPUT_PATH = BASE_DIR / "models" / "xgb_baseline_model.json"
@@ -35,6 +36,7 @@ IGNORE_COLS = [
     "price_per_sqft",
     "relative_price_sqft_to_zip_median",
     "oof_target_enc_zip_price_sqft",
+    "oof_target_enc_zip_price",      
     "geometry",
     "block_id",
     "id",
