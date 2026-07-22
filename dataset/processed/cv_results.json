@@ -1,0 +1,51 @@
+{
+  "model_params": {
+    "n_estimators": 500,
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "random_state": 42,
+    "n_jobs": -1
+  },
+  "features_used": 60,
+  "fold_results": [
+    {
+      "fold": 0,
+      "n_train": 16335,
+      "n_val": 4102,
+      "rmse": 88446.32717640276,
+      "mape": 12.670944781884394
+    },
+    {
+      "fold": 1,
+      "n_train": 16325,
+      "n_val": 4112,
+      "rmse": 87893.00446391066,
+      "mape": 16.3527875718811
+    },
+    {
+      "fold": 2,
+      "n_train": 16396,
+      "n_val": 4041,
+      "rmse": 88488.88603304791,
+      "mape": 16.489981397499673
+    },
+    {
+      "fold": 3,
+      "n_train": 16338,
+      "n_val": 4099,
+      "rmse": 82270.03301041787,
+      "mape": 13.095603943921683
+    },
+    {
+      "fold": 4,
+      "n_train": 16354,
+      "n_val": 4083,
+      "rmse": 83835.85071713643,
+      "mape": 13.505494566416019
+    }
+  ],
+  "mean_cv_rmse": 86186.82028018314,
+  "mean_cv_mape": 14.422962452320576
+}
