@@ -15,7 +15,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-BASE_DIR   = SCRIPT_DIR.parent.parent.parent  # src/model_training → src → root
+BASE_DIR   = SCRIPT_DIR.parent.parent  # model_training → src → root
 
 
 INPUT_PATH  = BASE_DIR / "dataset" / "processed" / "kc_master_dataset_cleaned.parquet"
