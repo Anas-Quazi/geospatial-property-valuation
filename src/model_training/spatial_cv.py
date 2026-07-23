@@ -7,9 +7,12 @@ import xgboost as xgb
 
 from xgb_baseline import load_data, IGNORE_COLS, INPUT_PATH
 
+# Phase 3: Spatial Block CV on the Phase 2 baseline, using the pre-assigned
+# `fold` column. Fresh model per fold, train on the rest, validate on the
+# held-out fold.
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-BASE_DIR = SCRIPT_DIR.parent.parent
+BASE_DIR = SCRIPT_DIR.parent.parent  # src/model_training -> src -> repo root
 
 OUTPUT_PATH = BASE_DIR / "dataset" / "processed" / "cv_results.json"
 
@@ -25,14 +28,17 @@ MODEL_PARAMS = dict(
 
 
 def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Root Mean Squared Error, in dollars."""
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
 def mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Mean Absolute Percentage Error, as a percent."""
     return float(np.mean(np.abs((y_true - y_pred) / y_true)) * 100)
 
 
 def run_spatial_cv(df: pd.DataFrame) -> dict:
+    """Train/validate one model per fold and return per-fold + mean metrics."""
     features = [c for c in df.columns if c not in IGNORE_COLS]
     folds = sorted(df["fold"].unique())
 
@@ -45,6 +51,7 @@ def run_spatial_cv(df: pd.DataFrame) -> dict:
 
     for k in folds:
         k_int = int(k)
+        # everything outside this fold trains, this fold validates
         train_df = df[df["fold"] != k]
         val_df = df[df["fold"] == k]
 
@@ -85,6 +92,7 @@ def run_spatial_cv(df: pd.DataFrame) -> dict:
 
 
 def save_results(results: dict, path: Path):
+    """Write CV results dict to disk as JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(results, f, indent=2)
