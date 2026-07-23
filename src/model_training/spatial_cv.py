@@ -28,17 +28,39 @@ MODEL_PARAMS = dict(
 
 
 def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Root Mean Squared Error, in dollars."""
+    """
+    Average prediction error in dollars.
+
+    Squares the errors before averaging, so a few big misses (e.g. an
+    underpriced mansion) pull this number up more than many small ones
+    would. Use this when large errors matter more than typical ones.
+    """
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
 def mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Mean Absolute Percentage Error, as a percent."""
+    """
+    Average prediction error as a percent of actual price.
+
+    Unlike RMSE, this is scale-free, so a $20k miss on a $200k house and
+    a $200k miss on a $2M house count the same (both 10%). Useful for
+    comparing error across cheap and expensive homes fairly.
+    """
     return float(np.mean(np.abs((y_true - y_pred) / y_true)) * 100)
 
 
 def run_spatial_cv(df: pd.DataFrame) -> dict:
-    """Train/validate one model per fold and return per-fold + mean metrics."""
+    """
+    Runs one train/validate cycle per fold and collects the results.
+
+    Folds come pre-assigned (spatial blocks, not random rows), so each
+    validation set is a geographic area the model never saw in training.
+    That's the point of spatial CV: it estimates how the model performs
+    on a new neighborhood, not just new houses in familiar neighborhoods.
+
+    A new model is trained from scratch for every fold, so results from
+    one fold can't influence another.
+    """
     features = [c for c in df.columns if c not in IGNORE_COLS]
     folds = sorted(df["fold"].unique())
 
@@ -92,7 +114,7 @@ def run_spatial_cv(df: pd.DataFrame) -> dict:
 
 
 def save_results(results: dict, path: Path):
-    """Write CV results dict to disk as JSON."""
+    """Write the CV results dict to disk as formatted JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(results, f, indent=2)
