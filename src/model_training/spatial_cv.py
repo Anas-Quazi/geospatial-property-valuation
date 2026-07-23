@@ -7,9 +7,12 @@ import xgboost as xgb
 
 from xgb_baseline import load_data, IGNORE_COLS, INPUT_PATH
 
+# Phase 3: Spatial Block CV on the Phase 2 baseline, using the pre-assigned
+# `fold` column. Fresh model per fold, train on the rest, validate on the
+# held-out fold.
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-BASE_DIR = SCRIPT_DIR.parent.parent
+BASE_DIR = SCRIPT_DIR.parent.parent  # src/model_training -> src -> repo root
 
 OUTPUT_PATH = BASE_DIR / "dataset" / "processed" / "cv_results.json"
 
@@ -25,14 +28,39 @@ MODEL_PARAMS = dict(
 
 
 def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    Average prediction error in dollars.
+
+    Squares the errors before averaging, so a few big misses (e.g. an
+    underpriced mansion) pull this number up more than many small ones
+    would. Use this when large errors matter more than typical ones.
+    """
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
 def mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    Average prediction error as a percent of actual price.
+
+    Unlike RMSE, this is scale-free, so a $20k miss on a $200k house and
+    a $200k miss on a $2M house count the same (both 10%). Useful for
+    comparing error across cheap and expensive homes fairly.
+    """
     return float(np.mean(np.abs((y_true - y_pred) / y_true)) * 100)
 
 
 def run_spatial_cv(df: pd.DataFrame) -> dict:
+    """
+    Runs one train/validate cycle per fold and collects the results.
+
+    Folds come pre-assigned (spatial blocks, not random rows), so each
+    validation set is a geographic area the model never saw in training.
+    That's the point of spatial CV: it estimates how the model performs
+    on a new neighborhood, not just new houses in familiar neighborhoods.
+
+    A new model is trained from scratch for every fold, so results from
+    one fold can't influence another.
+    """
     features = [c for c in df.columns if c not in IGNORE_COLS]
     folds = sorted(df["fold"].unique())
 
@@ -45,6 +73,7 @@ def run_spatial_cv(df: pd.DataFrame) -> dict:
 
     for k in folds:
         k_int = int(k)
+        # everything outside this fold trains, this fold validates
         train_df = df[df["fold"] != k]
         val_df = df[df["fold"] == k]
 
@@ -85,6 +114,7 @@ def run_spatial_cv(df: pd.DataFrame) -> dict:
 
 
 def save_results(results: dict, path: Path):
+    """Write the CV results dict to disk as formatted JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(results, f, indent=2)
