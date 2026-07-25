@@ -86,9 +86,12 @@ def to_undirected_np(edge_index: np.ndarray, edge_attr: np.ndarray):
 def save_graph(path: Path, edge_index: np.ndarray, edge_attr: np.ndarray):
     np.savez(path, edge_index=edge_index, edge_attr=edge_attr)
 
-
+# Phase 2 Main Block (Importing Phase 1 dynamically)
 if __name__ == "__main__":
+    from build_spatial_topology import inspect_topology_data
+
     script_dir = Path(__file__).resolve().parent
+
     candidate_paths = [
         script_dir / "dataset" / "processed" / "kc_master_dataset_cleaned.parquet",
         script_dir.parent / "dataset" / "processed" / "kc_master_dataset_cleaned.parquet",
@@ -99,15 +102,24 @@ if __name__ == "__main__":
     if input_path is None:
         raise FileNotFoundError("Could not find kc_master_dataset_cleaned.parquet in candidate paths.")
 
-    df = pd.read_parquet(input_path)
-    edge_index, edge_attr = build_knn_graph(df)
+    # 1. Run Phase 1 in-memory to project coordinates & ensure node IDs
+    df_projected = inspect_topology_data(input_path)
 
-    print(f"Nodes: {df.shape[0]:,}")
+    # 2. Feed the returned DataFrame directly into Phase 2 graph construction
+    edge_index, edge_attr = build_knn_graph(
+        df_projected, 
+        k=K_NEIGHBORS, 
+        x_col="x_proj", 
+        y_col="y_proj"
+    )
+
+    print(f"Nodes: {df_projected.shape[0]:,}")
     print(f"Edges (directed): {edge_index.shape[1]:,}")
     print(f"edge_index shape: {edge_index.shape}")
     print(f"edge_attr shape: {edge_attr.shape}")
-    print(f"Sample edge_attr (Gaussian-decay weights): {edge_attr[:5].ravel()}")
 
+    # 3. Save the final graph output artifact (.npz)
     out_path = script_dir.parent.parent / "dataset" / "processed" / "knn_graph.npz"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     save_graph(out_path, edge_index, edge_attr)
-    print(f"Saved to: {out_path}")
+    print(f"Saved KNN graph to: {out_path}")
