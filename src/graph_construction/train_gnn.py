@@ -30,7 +30,12 @@ class SpatialGraphSAGE(nn.Module):
 
 def train_and_evaluate(data: Data, epochs: int = 150, lr: float = 0.005):
     """Trains GraphSAGE and measures property price predictions in real dollars."""
-    y_target = torch.log1p(data.y)  # Log-transform for scale stability
+    # 1. Feature Scaling using Train Split Statistics
+    x_mean = data.x[data.train_mask].mean(dim=0, keepdim=True)
+    x_std = data.x[data.train_mask].std(dim=0, keepdim=True) + 1e-6
+    data.x = (data.x - x_mean) / x_std
+
+    y_target = torch.log1p(data.y)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = SpatialGraphSAGE(in_channels=data.x.size(1)).to(device)
@@ -40,7 +45,7 @@ def train_and_evaluate(data: Data, epochs: int = 150, lr: float = 0.005):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     criterion = nn.MSELoss()
 
-    print(f"\n🚀 Training GraphSAGE Model on Device: {device}")
+    print(f"\n Training GraphSAGE Model on Device: {device}")
     for epoch in range(1, epochs + 1):
         model.train()
         optimizer.zero_grad()
@@ -49,6 +54,7 @@ def train_and_evaluate(data: Data, epochs: int = 150, lr: float = 0.005):
         loss = criterion(out[data.train_mask], y_target[data.train_mask])
 
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         if epoch % 25 == 0 or epoch == 1:
@@ -68,8 +74,11 @@ def train_and_evaluate(data: Data, epochs: int = 150, lr: float = 0.005):
         test_out = model(data.x, data.edge_index)
 
         # Convert predictions & ground truth back to dollar values
-        preds = torch.expm1(test_out[data.test_mask]).cpu().numpy()
-        actuals = torch.expm1(y_target[data.test_mask]).cpu().numpy()
+        # Clamp log outputs to prevent exponential overflow in expm1
+        test_out_clamped = torch.clamp(test_out[data.test_mask], min=10.0, max=18.0)
+
+        preds = torch.expm1(test_out_clamped).squeeze().cpu().numpy()
+        actuals = data.y.squeeze()[data.test_mask].cpu().numpy()
 
         mae = np.mean(np.abs(preds - actuals))
         mape = np.mean(np.abs((actuals - preds) / actuals)) * 100
