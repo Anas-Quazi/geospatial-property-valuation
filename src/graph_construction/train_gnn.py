@@ -97,11 +97,11 @@ if __name__ == "__main__":
     if graph_path is None:
         raise FileNotFoundError("Could not find dataset. Run Phase 3 & 4 first!")
 
-    data = torch.load(graph_path)
+    data = torch.load(graph_path, weights_only=False)
 
     # Apply spatial split if masks aren't already generated
     if not hasattr(data, "train_mask"):
-        from phase4_spatial_audit import apply_spatial_block_split
+        from spatial_audit import apply_spatial_block_split
         data = apply_spatial_block_split(data)
 
     train_and_evaluate(data)
