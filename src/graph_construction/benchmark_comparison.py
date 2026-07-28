@@ -15,11 +15,17 @@ TARGET_CRS_NOTE = "Comparison run on identical spatial test folds (Spatial Block
 
 
 def load_xgb_metrics(path: Path) -> dict:
-    """Load saved XGBoost baseline CV results (from Phase 3, Week 2)."""
+    """Load XGBoost baseline metrics and normalize keys."""
     with open(path, "r") as f:
         results = json.load(f)
+
     print(f"✓ Loaded XGBoost baseline metrics from: {path}")
-    return results
+
+    return {
+        "rmse": results.get("mean_cv_rmse"),
+        "mape": results.get("mean_cv_mape"),
+        "mae": results.get("mean_cv_mae"),  # Will be None if not available
+    }
 
 
 def load_gnn_metrics(path: Path) -> dict:
