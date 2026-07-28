@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import json
 import torch.nn as nn
 import torch.nn.functional as F
 from pathlib import Path
@@ -154,6 +155,24 @@ def train_and_evaluate(
     print(f"  Root Mean Sq. Error (RMSE) : ${rmse:,.2f}")
     print(f"  Mean Abs % Error (MAPE)    : {mape:.2f}%")
     print("=" * 50)
+        # Save metrics for benchmark comparison
+    results = {
+        "mae": float(mae),
+        "rmse": float(rmse),
+        "mape": float(mape),
+    }
+
+    output_path = (
+        Path(__file__).resolve().parents[2]
+        / "dataset"
+        / "processed"
+        / "gnn_eval_results.json"
+    )
+
+    with open(output_path, "w") as f:
+        json.dump(results, f, indent=4)
+
+    print(f"\n✓ Saved GNN evaluation metrics to: {output_path}")
 
 
 if __name__ == "__main__":
