@@ -7,12 +7,8 @@ import xgboost as xgb
 
 from xgb_baseline import load_data, IGNORE_COLS, INPUT_PATH
 
-# Phase 3: Spatial Block CV on the Phase 2 baseline, using the pre-assigned
-# `fold` column. Fresh model per fold, train on the rest, validate on the
-# held-out fold.
-
 SCRIPT_DIR = Path(__file__).resolve().parent
-BASE_DIR = SCRIPT_DIR.parent.parent  # src/model_training -> src -> repo root
+BASE_DIR = SCRIPT_DIR.parent.parent
 
 OUTPUT_PATH = BASE_DIR / "dataset" / "processed" / "cv_results.json"
 
@@ -28,52 +24,33 @@ MODEL_PARAMS = dict(
 
 
 def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """
-    Average prediction error in dollars.
-
-    Squares the errors before averaging, so a few big misses (e.g. an
-    underpriced mansion) pull this number up more than many small ones
-    would. Use this when large errors matter more than typical ones.
-    """
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
-def mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """
-    Average prediction error as a percent of actual price.
+def mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return float(np.mean(np.abs(y_true - y_pred)))
 
-    Unlike RMSE, this is scale-free, so a $20k miss on a $200k house and
-    a $200k miss on a $2M house count the same (both 10%). Useful for
-    comparing error across cheap and expensive homes fairly.
-    """
+
+def mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(np.mean(np.abs((y_true - y_pred) / y_true)) * 100)
 
 
 def run_spatial_cv(df: pd.DataFrame) -> dict:
-    """
-    Runs one train/validate cycle per fold and collects the results.
-
-    Folds come pre-assigned (spatial blocks, not random rows), so each
-    validation set is a geographic area the model never saw in training.
-    That's the point of spatial CV: it estimates how the model performs
-    on a new neighborhood, not just new houses in familiar neighborhoods.
-
-    A new model is trained from scratch for every fold, so results from
-    one fold can't influence another.
-    """
     features = [c for c in df.columns if c not in IGNORE_COLS]
     folds = sorted(df["fold"].unique())
 
     print(f"Feature count : {len(features)}")
     print(f"Folds found   : {[int(f) for f in folds]}")
-    print(f"Target        : price (mean=${df['price'].mean():,.0f}, "
-          f"std=${df['price'].std():,.0f})\n")
+    print(
+        f"Target        : price (mean=${df['price'].mean():,.0f}, "
+        f"std=${df['price'].std():,.0f})\n"
+    )
 
     fold_results = []
 
     for k in folds:
         k_int = int(k)
-        # everything outside this fold trains, this fold validates
+
         train_df = df[df["fold"] != k]
         val_df = df[df["fold"] == k]
 
@@ -86,52 +63,68 @@ def run_spatial_cv(df: pd.DataFrame) -> dict:
         preds = model.predict(X_val)
 
         fold_rmse = rmse(y_val.values, preds)
+        fold_mae = mae(y_val.values, preds)
         fold_mape = mape(y_val.values, preds)
 
-        print(f"Fold {k_int} - RMSE: ${fold_rmse:,.0f} | MAPE: {fold_mape:.2f}%")
+        print(
+            f"Fold {k_int} | "
+            f"RMSE: ${fold_rmse:,.0f} | "
+            f"MAE: ${fold_mae:,.0f} | "
+            f"MAPE: {fold_mape:.2f}%"
+        )
 
-        fold_results.append({
-            "fold": k_int,
-            "n_train": len(train_df),
-            "n_val": len(val_df),
-            "rmse": fold_rmse,
-            "mape": fold_mape,
-        })
+        fold_results.append(
+            {
+                "fold": k_int,
+                "n_train": len(train_df),
+                "n_val": len(val_df),
+                "rmse": fold_rmse,
+                "mae": fold_mae,
+                "mape": fold_mape,
+            }
+        )
 
     mean_rmse = float(np.mean([r["rmse"] for r in fold_results]))
+    mean_mae = float(np.mean([r["mae"] for r in fold_results]))
     mean_mape = float(np.mean([r["mape"] for r in fold_results]))
 
-    print(f"\nMean CV RMSE: ${mean_rmse:,.0f}")
-    print(f"Mean CV MAPE: {mean_mape:.2f}%")
+    print(f"\nMean CV RMSE : ${mean_rmse:,.0f}")
+    print(f"Mean CV MAE  : ${mean_mae:,.0f}")
+    print(f"Mean CV MAPE : {mean_mape:.2f}%")
 
     return {
         "model_params": MODEL_PARAMS,
         "features_used": len(features),
         "fold_results": fold_results,
         "mean_cv_rmse": mean_rmse,
+        "mean_cv_mae": mean_mae,
         "mean_cv_mape": mean_mape,
     }
 
 
 def save_results(results: dict, path: Path):
-    """Write the CV results dict to disk as formatted JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
+
     with open(path, "w") as f:
         json.dump(results, f, indent=2)
+
     print(f"\nResults saved to: {path}")
 
 
 def main():
     df = load_data(INPUT_PATH)
+
     results = run_spatial_cv(df)
+
     save_results(results, OUTPUT_PATH)
 
     print("\n" + "=" * 50)
     print("  PHASE 3 SPATIAL BLOCK CV COMPLETE")
     print("=" * 50)
     print(f"  Mean CV RMSE : ${results['mean_cv_rmse']:,.0f}")
+    print(f"  Mean CV MAE  : ${results['mean_cv_mae']:,.0f}")
     print(f"  Mean CV MAPE : {results['mean_cv_mape']:.2f}%")
-    print(f"  Next         : Week 3 - Spatial embeddings / graph construction")
+    print("  Next         : Week 3 - Spatial embeddings / graph construction")
     print("=" * 50)
 
 
