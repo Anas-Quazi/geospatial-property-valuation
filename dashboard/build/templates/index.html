@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpatialGAT // Geospatial Property Valuation</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-icon">◆</span>
+    <span class="brand-text">SPATIAL<span class="accent">GAT</span> — PROPERTY VALUATION ENGINE</span>
+  </div>
+  <div class="stat-pills" id="summary-pills">
+    <div class="pill"><span class="pill-label">Properties</span><span class="pill-value" id="stat-count">—</span></div>
+    <div class="pill"><span class="pill-label">Median Price</span><span class="pill-value" id="stat-median">—</span></div>
+    <div class="pill"><span class="pill-label">GNN MAPE</span><span class="pill-value good" id="stat-gnn-mape">—</span></div>
+    <div class="pill"><span class="pill-label">XGB MAPE</span><span class="pill-value warn" id="stat-xgb-mape">—</span></div>
+    <div class="pill"><span class="pill-label">Improvement</span><span class="pill-value good" id="stat-improve">—</span></div>
+  </div>
+</header>
+
+<nav class="tabbar" id="tabbar">
+  <button class="tab-btn active" data-tab="tab1">Valuation Engine</button>
+  <button class="tab-btn" data-tab="tab2">Deal Finder</button>
+  <button class="tab-btn" data-tab="tab3">What-If Simulator</button>
+  <button class="tab-btn" data-tab="tab4">Model Audit</button>
+  <button class="tab-btn" data-tab="tab5">Neighborhood Explorer</button>
+</nav>
+
+<main>
+
+  <!-- TAB 1: VALUATION ENGINE -->
+  <section class="tab-content active" id="tab1">
+    <div class="grid-2col">
+      <div class="card">
+        <h2>Property Inputs</h2>
+        <div class="form-grid">
+          <label>Latitude <input type="number" step="0.0001" id="v-lat" value="47.6205"></label>
+          <label>Longitude <input type="number" step="0.0001" id="v-long" value="-122.3493"></label>
+          <label>Living Area (sqft) <input type="number" id="v-sqft-living" value="2200"></label>
+          <label>Lot Size (sqft) <input type="number" id="v-sqft-lot" value="6000"></label>
+          <label>Bedrooms <input type="number" id="v-beds" value="3"></label>
+          <label>Bathrooms <input type="number" step="0.25" id="v-baths" value="2.25"></label>
+          <label>Floors <input type="number" step="0.5" id="v-floors" value="1"></label>
+          <label>Year Built <input type="number" id="v-yrbuilt" value="1998"></label>
+          <label>Condition (1-5) <input type="number" min="1" max="5" id="v-condition" value="4"></label>
+          <label>Grade (1-13) <input type="number" min="1" max="13" id="v-grade" value="8"></label>
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" id="btn-valuate">Run Valuation</button>
+        </div>
+        <div class="map-hint">Click the map to set latitude/longitude</div>
+        <div id="v-map" class="mini-map"></div>
+      </div>
+
+      <div class="card">
+        <h2>Estimated Value</h2>
+        <div id="v-result-empty" class="empty-state">Run a valuation to see results</div>
+        <div id="v-result" class="hidden">
+          <div class="big-value" id="v-price">$0</div>
+          <div class="range-value">Confidence range: <span id="v-range">—</span></div>
+          <div class="mini-chart-wrap"><canvas id="chart-breakdown"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2col">
+      <div class="card">
+        <h2>k-NN Attention Map</h2>
+        <div id="attention-map" class="attention-map"></div>
+      </div>
+      <div class="card">
+        <h2>Neighbor Sidebar</h2>
+        <div id="neighbor-list" class="neighbor-list"><div class="empty-state">Run a valuation first</div></div>
+        <div id="neighbor-detail" class="neighbor-detail hidden"></div>
+      </div>
+    </div>
+
+    <div class="grid-2col">
+      <div class="card">
+        <h2>Property vs. Neighborhood (Zip)</h2>
+        <div class="chart-wrap"><canvas id="chart-zip-compare"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Neighbor Attention Weights</h2>
+        <div class="chart-wrap"><canvas id="chart-attention-weights"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: DEAL FINDER -->
+  <section class="tab-content" id="tab2">
+    <div class="card">
+      <h2>Search Filters</h2>
+      <div class="form-grid">
+        <label>Min Sqft <input type="number" id="d-min-sqft" value="1200"></label>
+        <label>Max Sqft <input type="number" id="d-max-sqft" value="3000"></label>
+        <label>Min Beds <input type="number" id="d-min-beds" value="2"></label>
+        <label>Max Beds <input type="number" id="d-max-beds" value="5"></label>
+        <label>Min Price <input type="number" id="d-min-price" value="150000"></label>
+        <label>Max Price <input type="number" id="d-max-price" value="700000"></label>
+        <label>Zipcode <input type="number" id="d-zip" placeholder="any"></label>
+      </div>
+      <button class="btn-primary" id="btn-search-deals">Search</button>
+      <div class="summary-line" id="deal-summary"></div>
+    </div>
+
+    <div class="grid-2col">
+      <div class="card">
+        <h2>Ranked Matches</h2>
+        <div class="table-wrap">
+          <table class="data-table" id="deal-table">
+            <thead><tr><th>ID</th><th>Price</th><th>Predicted</th><th>Diff</th><th>Beds/Baths</th><th>Sqft</th><th>Zip</th><th>Deal</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Latent Space Matcher</h2>
+        <div class="summary-line">Click a row on the left to find its top-5 similar properties.</div>
+        <div id="similar-result"></div>
+      </div>
+    </div>
+
+    <div class="grid-2col">
+      <div class="card">
+        <h2>Actual vs. Predicted (Current Results)</h2>
+        <div class="chart-wrap"><canvas id="chart-deal-scatter"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Deal Badge Breakdown</h2>
+        <div class="chart-wrap"><canvas id="chart-deal-badges"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: WHAT-IF SIMULATOR -->
+  <section class="tab-content" id="tab3">
+    <div class="grid-2col">
+      <div class="card">
+        <h2>Base Property</h2>
+        <div class="form-grid">
+          <label>Latitude <input type="number" step="0.0001" id="w-lat" value="47.6205"></label>
+          <label>Longitude <input type="number" step="0.0001" id="w-long" value="-122.3493"></label>
+          <label>Living Area (sqft) <input type="number" id="w-sqft-living" value="1800"></label>
+          <label>Lot Size (sqft) <input type="number" id="w-sqft-lot" value="5500"></label>
+          <label>Bedrooms <input type="number" id="w-beds" value="3"></label>
+          <label>Bathrooms <input type="number" step="0.25" id="w-baths" value="1.75"></label>
+          <label>Year Built <input type="number" id="w-yrbuilt" value="1985"></label>
+          <label>Condition (1-5) <input type="number" min="1" max="5" id="w-condition" value="3"></label>
+          <label>Grade (1-13) <input type="number" min="1" max="13" id="w-grade" value="7"></label>
+          <label>Renovation Cost ($) <input type="number" id="w-cost" value="60000"></label>
+        </div>
+        <h3>What-If Sliders</h3>
+        <div class="slider-row"><label>+ Sqft: <span id="s-sqft-val">0</span></label><input type="range" id="s-sqft" min="0" max="1500" step="50" value="0"></div>
+        <div class="slider-row"><label>+ Bedrooms: <span id="s-bed-val">0</span></label><input type="range" id="s-bed" min="0" max="3" step="1" value="0"></div>
+        <div class="slider-row"><label>+ Bathrooms: <span id="s-bath-val">0</span></label><input type="range" id="s-bath" min="0" max="3" step="0.25" value="0"></div>
+        <div class="slider-row"><label>Grade Upgrade: <span id="s-grade-val">0</span></label><input type="range" id="s-grade" min="0" max="4" step="1" value="0"></div>
+        <div class="slider-row"><label>Condition Upgrade: <span id="s-cond-val">0</span></label><input type="range" id="s-cond" min="0" max="2" step="1" value="0"></div>
+        <button class="btn-primary" id="btn-recalculate">Recalculate</button>
+      </div>
+      <div class="card">
+        <h2>Before / After</h2>
+        <div id="w-result-empty" class="empty-state">Click Recalculate to simulate a renovation</div>
+        <div id="w-result" class="hidden">
+          <div class="before-after">
+            <div><span class="label">Before</span><div class="big-value small" id="w-before">$0</div></div>
+            <div class="arrow">→</div>
+            <div><span class="label">After</span><div class="big-value small" id="w-after">$0</div></div>
+          </div>
+          <div class="roi-line" id="w-roi"></div>
+          <div class="mini-chart-wrap"><canvas id="chart-whatif"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card hidden" id="w-waterfall-card">
+      <h2>Value Contribution by Upgrade</h2>
+      <div class="chart-wrap"><canvas id="chart-waterfall"></canvas></div>
+    </div>
+  </section>
+
+  <!-- TAB 4: MODEL AUDIT -->
+  <section class="tab-content" id="tab4">
+    <div class="kpi-row" id="kpi-row"></div>
+    <div class="grid-2x2">
+      <div class="card"><h2>Predicted vs Actual (Calibration)</h2><div class="chart-wrap"><canvas id="chart-calibration"></canvas></div></div>
+      <div class="card"><h2>Spatial Error Heatmap (MAPE by Region)</h2><div id="error-heatmap-map" class="attention-map"></div></div>
+      <div class="card"><h2>Attention Decay vs Distance</h2><div class="chart-wrap"><canvas id="chart-decay"></canvas></div></div>
+      <div class="card"><h2>Cross-Validation Fold Performance</h2><div class="chart-wrap"><canvas id="chart-folds"></canvas></div></div>
+      <div class="card"><h2>Top Feature Importance (XGBoost, Gain)</h2><div class="chart-wrap"><canvas id="chart-importance"></canvas></div></div>
+      <div class="card"><h2>Prediction Error Distribution</h2><div class="chart-wrap"><canvas id="chart-error-dist"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- TAB 5: NEIGHBORHOOD EXPLORER -->
+  <section class="tab-content" id="tab5">
+    <div class="card">
+      <h2>Select Neighborhood</h2>
+      <div class="form-grid">
+        <label>Zipcode
+          <select id="n-zip"></select>
+        </label>
+      </div>
+      <button class="btn-primary" id="btn-load-neighborhood">Load Neighborhood</button>
+    </div>
+    <div id="n-result" class="hidden">
+      <div class="kpi-row" id="n-kpi-row"></div>
+      <div class="grid-2col">
+        <div class="card"><h2>Price Distribution</h2><div class="chart-wrap"><canvas id="chart-n-dist"></canvas></div></div>
+        <div class="card"><h2>Top Properties In Area</h2>
+          <div class="table-wrap">
+            <table class="data-table" id="n-table">
+              <thead><tr><th>ID</th><th>Price</th><th>Beds/Baths</th><th>Sqft</th><th>Deal</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2x2">
+        <div class="card"><h2>Construction Grade Mix</h2><div class="chart-wrap"><canvas id="chart-n-grade"></canvas></div></div>
+        <div class="card"><h2>Bedroom Mix</h2><div class="chart-wrap"><canvas id="chart-n-beds"></canvas></div></div>
+        <div class="card"><h2>Deal Badge Breakdown</h2><div class="chart-wrap"><canvas id="chart-n-badges"></canvas></div></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/leaflet.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tab1_valuation.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tab2_dealfinder.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tab3_whatif.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tab4_audit.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tab5_neighborhood.js') }}"></script>
+</body>
+</html>
