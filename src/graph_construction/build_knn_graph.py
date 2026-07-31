@@ -13,7 +13,7 @@ from scipy.spatial import KDTree
 # ---------------------------------------------------------------------------
 
 K_NEIGHBORS = 10
-SIGMA = 1000.0  
+SIGMA = 500.0 
 
 
 def build_knn_graph(df: pd.DataFrame, k: int = K_NEIGHBORS, sigma: float = SIGMA,
